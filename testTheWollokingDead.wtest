@@ -1,0 +1,309 @@
+import armas.ArmaBlanca
+import sobrevivientes.*
+import horda.Horda
+import refugio.*
+import expediciones.*
+
+describe "Puntos 1.a y 1.b: sobrevivientes" {
+  test "un tirador mata y consume balas segun su cantidad de armas" {
+    const tirador = new Tirador(cantidadArmas = 3)
+    assert.equals(30, tirador.bajasPorMin())
+    assert.equals(30, tirador.balasPorMin())
+  }
+
+  test "un recolector usa el arma blanca mas eficaz y no consume balas" {
+    const cuchillo = new ArmaBlanca(bajasPorMin = 3)
+    const machete = new ArmaBlanca(bajasPorMin = 8)
+    const recolector = new Recolector(armas = [cuchillo, machete])
+    assert.equals(machete, recolector.armaMasEficaz())
+    assert.equals(8, recolector.bajasPorMin())
+    assert.equals(0, recolector.balasPorMin())
+  }
+
+  test "un principiante comienza con 5 balas por wolloker" {
+    const principiante = new Principiante()
+    assert.equals(20, principiante.balasPorMin())
+    assert.equals(4, principiante.bajasPorMin())
+  }
+
+  test "un principiante mejora hasta el minimo de 2 balas por wolloker" {
+    const principiante = new Principiante()
+    principiante.mejorar()
+    assert.equals(5, principiante.bajasPorMin())
+    5.times { _ => principiante.mejorar() }
+    assert.equals(10, principiante.bajasPorMin())
+    assert.equals(20, principiante.balasPorMin())
+  }
+
+  test "mejorar no cambia a tiradores ni recolectores" {
+    const tirador = new Tirador(cantidadArmas = 1)
+    const recolector = new Recolector(armas = [new ArmaBlanca(bajasPorMin = 7)])
+    tirador.mejorar()
+    recolector.mejorar()
+    assert.equals(10, tirador.bajasPorMin())
+    assert.equals(7, recolector.bajasPorMin())
+  }
+}
+
+describe "Puntos 2.a y 2.b: refugio y horda" {
+  test "el refugio suma las bajas y balas por minuto de sus integrantes" {
+    const refugio = new Refugio(sobrevivientes = [
+      new Tirador(cantidadArmas = 2),
+      new Recolector(armas = [new ArmaBlanca(bajasPorMin = 7)]),
+      new Principiante()
+    ])
+    assert.equals(31, refugio.bajasPorMin())
+    assert.equals(40, refugio.balasPorMin())
+  }
+
+  test "un refugio vacio no mata ni consume balas" {
+    const refugio = new Refugio()
+    assert.equals(0, refugio.bajasPorMin())
+    assert.equals(0, refugio.balasPorMin())
+  }
+
+  test "la horda distribuye sus wollokers durante el ataque" {
+    const horda = new Horda(cantidadWollokers = 25, duracionAtaque = 2)
+    assert.equals(12.5, horda.wollokersPorMin())
+    assert.equals(2, horda.duracionAtaque())
+  }
+}
+
+describe "Punto 3.a: capacidad de soportar ataques" {
+  test "se puede soportar un ataque con bajas y balas exactamente suficientes" {
+    const refugio = new Refugio(sobrevivientes = [new Tirador(cantidadArmas = 1)], balas = 30)
+    const horda = new Horda(cantidadWollokers = 30, duracionAtaque = 3)
+    assert.equals(30, refugio.balasPorAtaque(horda))
+    assert.that(refugio.puedeManejar(horda))
+    assert.that(refugio.balasSuficientes(horda))
+    assert.that(refugio.puedeSoportar(horda))
+  }
+
+  test "no alcanza con tener balas si las bajas por minuto son insuficientes" {
+    const refugio = new Refugio(sobrevivientes = [new Tirador(cantidadArmas = 1)], balas = 100)
+    const horda = new Horda(cantidadWollokers = 31, duracionAtaque = 3)
+    assert.notThat(refugio.puedeManejar(horda))
+    assert.that(refugio.balasSuficientes(horda))
+    assert.notThat(refugio.puedeSoportar(horda))
+  }
+
+  test "no alcanza con poder manejar la horda si faltan balas" {
+    const refugio = new Refugio(sobrevivientes = [new Tirador(cantidadArmas = 1)], balas = 29)
+    const horda = new Horda(cantidadWollokers = 30, duracionAtaque = 3)
+    assert.that(refugio.puedeManejar(horda))
+    assert.notThat(refugio.balasSuficientes(horda))
+    assert.notThat(refugio.puedeSoportar(horda))
+  }
+}
+
+describe "Punto 3.b: ataques y alimentacion" {
+  test "al soportar el ataque se gastan balas, mejoran los sobrevivientes y comen dos dias" {
+    const principiante = new Principiante()
+    const refugio = new Refugio(sobrevivientes = [principiante, new Tirador(cantidadArmas = 1)], balas = 100, raciones = 20)
+    const horda = new Horda(cantidadWollokers = 28, duracionAtaque = 2)
+    refugio.recibirAtaque(horda)
+    assert.equals(40, refugio.balas())
+    assert.equals(5, principiante.bajasPorMin())
+    assert.equals(2, refugio.sobrevivientes().size())
+    assert.equals(8, refugio.raciones())
+  }
+}
+
+describe "Punto 4: expediciones" {
+    test "cada tipo de sobreviviente recolecta segun su factor" {
+      const tirador = new Tirador(cantidadArmas = 1)
+      const recolector = new Recolector()
+      const principiante = new Principiante()
+      assert.equals(10, tirador.provisionesQueRecolecta(10))
+      assert.equals(14, recolector.provisionesQueRecolecta(10))
+      assert.equals(8, principiante.provisionesQueRecolecta(10))
+    }
+
+    test "la despensa recolecta raciones antes de incorporar a los sobrevivientes encontrados" {
+      const encontrado = new Recolector(armas = [new ArmaBlanca(bajasPorMin = 5)])
+      const refugio = new Refugio(sobrevivientes = [new Tirador(cantidadArmas = 1)], balas = 7, raciones = 3)
+      const despensa = new Despensa(raciones = 10, sobrevivientes = [encontrado])
+      refugio.realizarExpedicion(despensa)
+      assert.equals(13, refugio.raciones())
+      assert.equals(7, refugio.balas())
+      assert.equals(2, refugio.sobrevivientes().size())
+      assert.that(refugio.sobrevivientes().contains(encontrado))
+      assert.equals(24, refugio.provisionesQueRecolecta(10))
+    }
+
+    test "la armeria suma las balas recolectadas por todo el grupo" {
+      const refugio = new Refugio(sobrevivientes = [
+        new Tirador(cantidadArmas = 1),
+        new Recolector(armas = [new ArmaBlanca(bajasPorMin = 5)]),
+        new Principiante()
+      ], balas = 10, raciones = 9)
+      refugio.realizarExpedicion(armeria)
+      assert.equals(74, refugio.balas())
+      assert.equals(9, refugio.raciones())
+      assert.equals(3, refugio.sobrevivientes().size())
+    }
+
+    test "Wollokmart suma ambas provisiones con los factores de todos" {
+      const refugio = new Refugio(sobrevivientes = [
+        new Recolector(armas = [new ArmaBlanca(bajasPorMin = 5)]),
+        new Principiante()
+      ], balas = 2, raciones = 3)
+      refugio.realizarExpedicion(new Wollokmart(cantidadProvisiones = 5))
+      assert.equals(13, refugio.balas())
+      assert.equals(14, refugio.raciones())
+    }
+
+    test "las cantidades recolectadas pueden ser fraccionarias" {
+      const refugio = new Refugio(sobrevivientes = [new Principiante()])
+      refugio.realizarExpedicion(new Wollokmart(cantidadProvisiones = 1))
+      assert.equals(0.8, refugio.balas())
+      assert.equals(0.8, refugio.raciones())
+    }
+
+    test "las raciones fraccionarias recolectadas se usan para alimentar y conservan el sobrante" {
+      const refugio = new Refugio(sobrevivientes = [new Principiante()], raciones = 5.5)
+      refugio.realizarExpedicion(new Despensa(raciones = 1))
+      refugio.consumirComida(2)
+      assert.equals(1, refugio.sobrevivientes().size())
+      assert.equals(0.3, refugio.raciones())
+    }
+
+    test "un refugio vacio no recolecta pero puede encontrar sobrevivientes" {
+      const encontrado = new Principiante()
+      const refugio = new Refugio(balas = 2, raciones = 3)
+      refugio.realizarExpedicion(new Despensa(raciones = 10, sobrevivientes = [encontrado]))
+      assert.equals(3, refugio.raciones())
+      assert.equals(2, refugio.balas())
+      assert.equals([encontrado], refugio.sobrevivientes())
+      refugio.realizarExpedicion(armeria)
+      assert.equals(18, refugio.balas())
+    }
+  }
+
+  describe "Punto 5: robo de refugios" {
+    test "un refugio mas fuerte roba todas las provisiones sin llevarse sobrevivientes" {
+      const atacante = new Refugio(sobrevivientes = [new Tirador(cantidadArmas = 2)], balas = 3, raciones = 4)
+      const victima = new Refugio(sobrevivientes = [new Tirador(cantidadArmas = 1)], balas = 20, raciones = 30)
+      atacante.robarRefugio(victima)
+      assert.equals(23, atacante.balas())
+      assert.equals(34, atacante.raciones())
+      assert.equals(0, victima.balas())
+      assert.equals(0, victima.raciones())
+      assert.equals(1, atacante.sobrevivientes().size())
+      assert.equals(1, victima.sobrevivientes().size())
+    }
+
+    test "un refugio mas debil no puede robar y no cambia ninguna provision" {
+      const atacante = new Refugio(sobrevivientes = [new Principiante()], balas = 3, raciones = 4)
+      const victima = new Refugio(sobrevivientes = [new Tirador(cantidadArmas = 1)], balas = 20, raciones = 30)
+      assert.throwsExceptionLike(new RoboException(message = "Las bajas por minuto no fueron suficientes"), { atacante.robarRefugio(victima) })
+      assert.equals(3, atacante.balas())
+      assert.equals(4, atacante.raciones())
+      assert.equals(20, victima.balas())
+      assert.equals(30, victima.raciones())
+    }
+
+    test "un empate en bajas por minuto no permite el robo" {
+      const atacante = new Refugio(sobrevivientes = [new Tirador(cantidadArmas = 1)], balas = 3, raciones = 4)
+      const victima = new Refugio(sobrevivientes = [new Tirador(cantidadArmas = 1)], balas = 20, raciones = 30)
+      assert.throwsExceptionLike(new RoboException(message = "Las bajas por minuto no fueron suficientes"), { atacante.robarRefugio(victima) })
+      assert.equals(3, atacante.balas())
+      assert.equals(4, atacante.raciones())
+      assert.equals(20, victima.balas())
+      assert.equals(30, victima.raciones())
+    }
+
+    test "un refugio no puede robarse a si mismo" {
+      const refugio = new Refugio(sobrevivientes = [new Tirador(cantidadArmas = 1)], balas = 3, raciones = 4)
+      assert.throwsExceptionLike(new RoboException(message = "Las bajas por minuto no fueron suficientes"), { refugio.robarRefugio(refugio) })
+      assert.equals(3, refugio.balas())
+      assert.equals(4, refugio.raciones())
+    }
+
+    test "las balas robadas pueden usarse para soportar un ataque" {
+      const atacante = new Refugio(sobrevivientes = [new Tirador(cantidadArmas = 1)], raciones = 6)
+      const victima = new Refugio(balas = 10)
+      const horda = new Horda(cantidadWollokers = 10, duracionAtaque = 1)
+      assert.notThat(atacante.puedeSoportar(horda))
+      atacante.robarRefugio(victima)
+      assert.that(atacante.puedeSoportar(horda))
+      atacante.recibirAtaque(horda)
+      assert.equals(0, atacante.balas())
+      assert.equals(0, atacante.raciones())
+      assert.equals(1, atacante.sobrevivientes().size())
+    }
+  }
+
+describe "Punto 3.b: perdidas y alimentacion" {
+  test "al no soportar el ataque se pierden sobrevivientes sin gastar balas ni mejorar" {
+    const primero = new Principiante()
+    const segundo = new Principiante()
+    const tercero = new Principiante()
+    const refugio = new Refugio(sobrevivientes = [primero, segundo, tercero], balas = 100, raciones = 30)
+    const horda = new Horda(cantidadWollokers = 100, duracionAtaque = 2)
+    refugio.recibirAtaque(horda)
+    assert.equals(100, refugio.balas())
+    assert.equals(1, refugio.sobrevivientes().size())
+    assert.equals(4, refugio.sobrevivientes().anyOne().bajasPorMin())
+    assert.equals(24, refugio.raciones())
+  }
+
+  test "las perdidas por ataque no superan la cantidad de sobrevivientes" {
+    const refugio = new Refugio(sobrevivientes = [new Principiante()], raciones = 10)
+    const horda = new Horda(cantidadWollokers = 100, duracionAtaque = 3)
+    refugio.recibirAtaque(horda)
+    assert.equals(0, refugio.sobrevivientes().size())
+    assert.equals(10, refugio.raciones())
+  }
+
+  test "una duracion fraccionaria causa tantas perdidas como su parte entera" {
+    const refugio = new Refugio(sobrevivientes = [new Principiante(), new Principiante(), new Principiante()], raciones = 30)
+    const horda = new Horda(cantidadWollokers = 100, duracionAtaque = 1.5)
+    refugio.recibirAtaque(horda)
+    assert.equals(2, refugio.sobrevivientes().size())
+    assert.equals(18, refugio.raciones())
+  }
+
+  test "el hambre tambien se aplica despues de soportar un ataque" {
+    const refugio = new Refugio(sobrevivientes = [new Tirador(cantidadArmas = 1), new Tirador(cantidadArmas = 1)], balas = 20, raciones = 7)
+    const horda = new Horda(cantidadWollokers = 20, duracionAtaque = 1)
+    refugio.recibirAtaque(horda)
+    assert.equals(0, refugio.balas())
+    assert.equals(1, refugio.sobrevivientes().size())
+    assert.equals(1, refugio.raciones())
+  }
+
+  test "si faltan balas se pierden sobrevivientes y se alimenta a quienes quedan" {
+    const refugio = new Refugio(sobrevivientes = [new Tirador(cantidadArmas = 1), new Tirador(cantidadArmas = 1)], balas = 19, raciones = 12)
+    const horda = new Horda(cantidadWollokers = 20, duracionAtaque = 1)
+    refugio.recibirAtaque(horda)
+    assert.equals(19, refugio.balas())
+    assert.equals(1, refugio.sobrevivientes().size())
+    assert.equals(6, refugio.raciones())
+  }
+
+  test "el hambre elimina a quienes no pueden alimentarse y deja las raciones sobrantes" {
+    const refugio = new Refugio(sobrevivientes = [new Principiante(), new Principiante(), new Principiante()], raciones = 13)
+    assert.equals(6, refugio.consumoTotalPorPersona(2))
+    assert.equals(3, refugio.cantidadNecesitaAlimentar())
+    assert.equals(2, refugio.cantidadPuedeAlimentar(2))
+    assert.equals(1, refugio.muertosDeHambre(2))
+    refugio.consumirComida(2)
+    assert.equals(2, refugio.sobrevivientes().size())
+    assert.equals(1, refugio.raciones())
+  }
+
+  test "sin raciones todos mueren de hambre" {
+    const refugio = new Refugio(sobrevivientes = [new Principiante(), new Principiante()])
+    refugio.consumirComida(2)
+    assert.equals(0, refugio.sobrevivientes().size())
+    assert.equals(0, refugio.raciones())
+  }
+
+  test "la alimentacion respeta la cantidad de dias indicada" {
+    const refugio = new Refugio(sobrevivientes = [new Principiante(), new Principiante()], raciones = 30)
+    refugio.consumirComida(3)
+    assert.equals(2, refugio.sobrevivientes().size())
+    assert.equals(12, refugio.raciones())
+  }
+}
