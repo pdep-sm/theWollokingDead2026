@@ -1,4 +1,4 @@
-# Enunciado: [The Wolloking Dead]([https://github.com/pdep-sm/theWollokingDead2026.git](https://docs.google.com/document/d/1d8triehVhaBeojGmofb3BGabPFS95Wvon0c2uUtz6dA))
+# Enunciado: [The Wolloking Dead](https://docs.google.com/document/d/1d8triehVhaBeojGmofb3BGabPFS95Wvon0c2uUtz6dA)
 
 # Código en el aula
 
